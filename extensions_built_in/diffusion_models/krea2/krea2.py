@@ -92,22 +92,72 @@ QWEN_IMAGE_VAE_PATH = "Qwen/Qwen-Image"
 HF_TOKEN = os.getenv("HF_TOKEN", None)
 
 
+def _dequantize_fp8_scaled(state_dict: dict) -> dict:
+    """Reconstruct bf16 weights from an fp8-per-tensor-scaled checkpoint.
+
+    ComfyUI / Krea publish the MMDiT weights in an ``fp8_e4m3`` "scaled" format:
+    each quantized linear stores ``<layer>.weight`` (float8_e4m3fn) plus a scalar
+    ``<layer>.weight_scale`` (float32), where the real weight is
+    ``weight.float() * weight_scale``. The mixed/Turbo packaging additionally
+    writes a ``<layer>.comfy_quant`` (uint8) descriptor sidecar per layer.
+
+    ai-toolkit's ``SingleStreamDiT`` holds plain (unquantized) parameters and does
+    its own quantization at load time when ``model.quantize`` is set, so it needs
+    the reconstructed weights with the ``weight_scale`` / ``comfy_quant`` sidecars
+    removed. This function is a no-op on an already-unquantized state dict (no
+    ``weight_scale`` keys), so it is always safe to call.
+    """
+    scale_suffix = ".weight_scale"
+    scale_keys = [k for k in state_dict if k.endswith(scale_suffix)]
+    if not scale_keys:
+        return state_dict
+
+    for scale_key in scale_keys:
+        base = scale_key[: -len(scale_suffix)]
+        weight_key = base + ".weight"
+        weight = state_dict.get(weight_key)
+        if weight is None:
+            raise KeyError(
+                f"fp8-scaled checkpoint has {scale_key!r} with no matching "
+                f"{weight_key!r}."
+            )
+        scale = state_dict[scale_key]
+        # Multiply in float32 for correctness, then materialize as bf16 (the model
+        # dtype); the caller re-casts floating tensors to its dtype anyway.
+        state_dict[weight_key] = (weight.to(torch.float32) * scale.to(torch.float32)).to(
+            torch.bfloat16
+        )
+        del state_dict[scale_key]
+
+    # Drop ComfyUI's per-layer quantization descriptor tensors — not model params.
+    for key in [k for k in state_dict if k.endswith(".comfy_quant")]:
+        del state_dict[key]
+
+    return state_dict
+
+
 def _load_mmdit_state_dict(name_or_path: str, filename: Optional[str]) -> dict:
     """Load the MMDiT weights from a local safetensors file/dir or the HF hub.
 
     ``name_or_path`` may be: a ``.safetensors`` file, a directory containing one
     (``filename`` or the lone ``.safetensors`` in it), or a hub repo id (the
     file ``filename`` is downloaded, defaulting to ``model.safetensors``).
+
+    fp8-per-tensor-scaled checkpoints (ComfyUI / Krea "scaled" and "fp8_mixed"
+    packagings) are transparently dequantized back to bf16 so they load into the
+    unquantized ``SingleStreamDiT``.
     """
     if name_or_path.endswith(".safetensors") and os.path.isfile(name_or_path):
-        return load_file(name_or_path)
+        return _dequantize_fp8_scaled(load_file(name_or_path))
 
     if os.path.isdir(name_or_path):
         if filename is not None:
-            return load_file(os.path.join(name_or_path, filename))
+            return _dequantize_fp8_scaled(load_file(os.path.join(name_or_path, filename)))
         candidates = [f for f in os.listdir(name_or_path) if f.endswith(".safetensors")]
         if len(candidates) == 1:
-            return load_file(os.path.join(name_or_path, candidates[0]))
+            return _dequantize_fp8_scaled(
+                load_file(os.path.join(name_or_path, candidates[0]))
+            )
         raise FileNotFoundError(
             f"Could not pick an MMDiT checkpoint in {name_or_path}: found "
             f"{candidates}. Set model.model_kwargs.checkpoint_filename."
@@ -128,7 +178,7 @@ def _load_mmdit_state_dict(name_or_path: str, filename: Optional[str]) -> dict:
             f"Could not find {fname!r} in hub repo {name_or_path!r}. Set "
             "model.model_kwargs.checkpoint_filename to the weight file name."
         ) from e
-    return load_file(path)
+    return _dequantize_fp8_scaled(load_file(path))
 
 
 class Krea2Model(BaseModel):
