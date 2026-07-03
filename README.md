@@ -152,14 +152,14 @@ will install / update the UI and it's dependencies and start the UI.
 
 ```bash
 cd ui
-npm run build_and_start
+bun run build_and_start
 ```
 
 In this fork you can instead use the `just` recipes (build once, then start —
 faster restarts):
 
 ```bash
-just ui-build   # npm install + prisma db push + next build
+just ui-build   # bun install + prisma db push + next build
 just ui-start   # run the UI on :8675 in the foreground
 ```
 
@@ -177,13 +177,13 @@ the UI. You can set this when starting the UI like so:
 
 ```bash
 # Linux
-AI_TOOLKIT_AUTH=super_secure_password npm run build_and_start
+AI_TOOLKIT_AUTH=super_secure_password bun run build_and_start
 
 # Windows
-set AI_TOOLKIT_AUTH=super_secure_password && npm run build_and_start
+set AI_TOOLKIT_AUTH=super_secure_password && bun run build_and_start
 
 # Windows Powershell
-$env:AI_TOOLKIT_AUTH="super_secure_password"; npm run build_and_start
+$env:AI_TOOLKIT_AUTH="super_secure_password"; bun run build_and_start
 ```
 
 ### Training

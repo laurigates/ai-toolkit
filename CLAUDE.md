@@ -29,7 +29,7 @@ Python env is uv-managed; recipes live in the `justfile` (`just` to list).
 | Re-resolve lockfile after editing deps | `just lock` (`uv lock`) |
 | Run a training job (CLI) | `just train config/whatever.yaml` → `uv run python run.py <config>` |
 | Run any Python | `uv run python …` (or `.venv/bin/python …`) |
-| Build the UI | `just ui-build` (npm install + `prisma db push` + next build) |
+| Build the UI | `just ui-build` (bun install + `prisma db push` + next build) |
 | Run the UI on :8675 | `just ui-start`, or the systemd service (below) |
 | Deploy/restart the systemd service | `just install-service` (needs sudo) / `just restart` |
 
@@ -104,7 +104,7 @@ pipeline, not adding a job type.
 - The UI writes a job config and launches it; training runs are child
   processes, not in-process. The UI need not stay running for a job to finish.
 - Auth: `AI_TOOLKIT_AUTH` env var (put it in `.env`, loaded by the service).
-- `npm run start` assumes a prior `npm run build`; the systemd unit runs
+- `bun run start` assumes a prior `bun run build`; the systemd unit runs
   `start`, so rebuild with `just ui-build` after UI changes, then `just restart`.
 
 ### Deployment

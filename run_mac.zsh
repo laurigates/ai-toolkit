@@ -25,6 +25,7 @@ RELEASE_TAG="20241219"
 
 # --- Package versions (update these as needed) ---
 NODE_VERSION="23.11.1"
+BUN_VERSION="1.3.14"
 TORCH_VERSION="2.11.0"
 TORCHVISION_VERSION="0.26.0"
 TORCHAUDIO_VERSION="2.11.0"
@@ -116,6 +117,29 @@ else
     echo "Node.js v${NODE_VERSION} is up to date."
 fi
 
+# ── 3b. Download / update portable bun (UI package manager) ─────────
+# Node stays the runtime; bun installs deps and runs the UI scripts.
+BUN_DIR="$SCRIPT_DIR/.bun"
+BUN_BIN="$BUN_DIR/bin/bun"
+
+NEED_BUN=false
+if [[ ! -x "$BUN_BIN" ]]; then
+    NEED_BUN=true
+elif [[ "$("$BUN_BIN" --version 2>/dev/null)" != "${BUN_VERSION}" ]]; then
+    echo "bun version mismatch (want ${BUN_VERSION}, have $("$BUN_BIN" --version))."
+    NEED_BUN=true
+fi
+
+if $NEED_BUN; then
+    echo "Downloading bun v${BUN_VERSION}..."
+    rm -rf "$BUN_DIR"
+    BUN_INSTALL="$BUN_DIR" bash -c \
+        "curl -fsSL https://bun.sh/install | bash -s -- bun-v${BUN_VERSION}"
+    echo "bun v${BUN_VERSION} installed to $BUN_DIR"
+else
+    echo "bun v${BUN_VERSION} is up to date."
+fi
+
 # ── 4. Install / update PyTorch packages ────────────────────────────
 # Helper: returns 0 if the package is installed at the exact version
 pkg_ok() {
@@ -158,9 +182,9 @@ if [[ -f "$REQUIREMENTS" ]]; then
 fi
 
 # ── 6. Build and start the UI ───────────────────────────────────────
-export PATH="$NODE_DIR/bin:$VENV_DIR/bin:$PATH"
+export PATH="$BUN_DIR/bin:$NODE_DIR/bin:$VENV_DIR/bin:$PATH"
 
 echo ""
 echo "Starting UI..."
 cd "$SCRIPT_DIR/ui"
-npm run build_and_start
+bun run build_and_start
