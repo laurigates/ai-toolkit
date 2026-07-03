@@ -93,13 +93,23 @@ HF_TOKEN = os.getenv("HF_TOKEN", None)
 
 
 def _dequantize_fp8_scaled(state_dict: dict) -> dict:
-    """Reconstruct bf16 weights from an fp8-per-tensor-scaled checkpoint.
+    """Reconstruct bf16 weights from an fp8-scaled checkpoint.
 
     ComfyUI / Krea publish the MMDiT weights in an ``fp8_e4m3`` "scaled" format:
-    each quantized linear stores ``<layer>.weight`` (float8_e4m3fn) plus a scalar
+    each quantized linear stores ``<layer>.weight`` (float8_e4m3fn) plus a
     ``<layer>.weight_scale`` (float32), where the real weight is
-    ``weight.float() * weight_scale``. The mixed/Turbo packaging additionally
-    writes a ``<layer>.comfy_quant`` (uint8) descriptor sidecar per layer.
+    ``weight.float() * weight_scale``. Two scale granularities occur in the wild:
+
+    * **per-tensor** -- ``weight_scale`` is a scalar (shape ``[]``). Krea's own
+      ``raw``/``turbo`` "scaled" files use this.
+    * **per-output-channel** -- ``weight_scale`` is a vector of length
+      ``out_features`` (e.g. community re-quants like ``szwagros/Krea-2-Turbo-fp8``).
+      Each output row ``o`` is scaled by ``weight_scale[o]``, so the scale must be
+      reshaped to broadcast along axis 0 -- a plain ``weight * scale`` would apply
+      it along the wrong axis (square weights) or fail to broadcast (non-square).
+
+    The "fp8_mixed" packaging additionally writes a ``<layer>.comfy_quant`` (uint8)
+    descriptor sidecar per layer.
 
     ai-toolkit's ``SingleStreamDiT`` holds plain (unquantized) parameters and does
     its own quantization at load time when ``model.quantize`` is set, so it needs
@@ -121,12 +131,22 @@ def _dequantize_fp8_scaled(state_dict: dict) -> dict:
                 f"fp8-scaled checkpoint has {scale_key!r} with no matching "
                 f"{weight_key!r}."
             )
-        scale = state_dict[scale_key]
+        scale = state_dict[scale_key].to(torch.float32)
+        if scale.ndim == 0 or scale.numel() == 1:
+            # per-tensor: scalar broadcasts against any shape
+            pass
+        elif scale.ndim == 1 and scale.shape[0] == weight.shape[0]:
+            # per-output-channel: reshape to (out, 1, 1, ...) to scale along axis 0
+            scale = scale.reshape([-1] + [1] * (weight.ndim - 1))
+        else:
+            raise ValueError(
+                f"Unsupported weight_scale shape {tuple(state_dict[scale_key].shape)} "
+                f"for weight {tuple(weight.shape)} at {base!r}: expected a scalar "
+                "(per-tensor) or a length-out_features vector (per-output-channel)."
+            )
         # Multiply in float32 for correctness, then materialize as bf16 (the model
         # dtype); the caller re-casts floating tensors to its dtype anyway.
-        state_dict[weight_key] = (weight.to(torch.float32) * scale.to(torch.float32)).to(
-            torch.bfloat16
-        )
+        state_dict[weight_key] = (weight.to(torch.float32) * scale).to(torch.bfloat16)
         del state_dict[scale_key]
 
     # Drop ComfyUI's per-layer quantization descriptor tensors — not model params.
