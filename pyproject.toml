@@ -1,0 +1,93 @@
+[project]
+name = "ai-toolkit"
+version = "0.10.19"
+description = "All-in-one training suite for diffusion models (image, video, audio) on consumer hardware."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+# NOTE: This is the source of truth for the Python environment in this fork.
+# `requirements.txt` / `requirements_base.txt` are retained only as the
+# upstream-sync surface (ostris/ai-toolkit ships those); prefer `uv sync` here.
+#
+# torch/torchvision/torchaudio are pinned to the same versions as the upstream
+# README's `--index-url .../cu128` install and are resolved through the
+# `pytorch-cu128` index declared below.
+dependencies = [
+    # ---- GPU stack (cu128, see [tool.uv.sources]) ----
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "torchaudio==2.9.1",
+    "torchao==0.10.0",
+    "torchcodec==0.9.1",
+    # ---- diffusion / training core ----
+    "diffusers",  # git-pinned in [tool.uv.sources]
+    "transformers==5.5.3",
+    "accelerate",
+    "peft==0.18.1",
+    "safetensors",
+    "huggingface-hub==1.10.1",
+    "hf-transfer",
+    "optimum-quanto==0.2.4",
+    "bitsandbytes",
+    "lycoris-lora==1.8.3",
+    "prodigyopt",
+    "k-diffusion",
+    "open-clip-torch",
+    "timm==1.0.22",
+    "controlnet-aux==0.0.10",
+    "invisible-watermark",
+    "kornia",
+    "lpips",
+    "pytorch-fid",
+    "pytorch-wavelets==1.3.0",
+    "sentencepiece",
+    # ---- data / io / media ----
+    "albumentations==1.4.15",
+    "albucore==0.0.16",
+    "opencv-python",
+    "av==16.0.1",
+    "librosa==0.11.0",
+    "mutagen==1.47.0",
+    "scipy==1.12.0",
+    "matplotlib==3.10.1",
+    # ---- config / utils ----
+    "pyyaml",
+    "oyaml",
+    "toml",
+    "omegaconf",
+    "pydantic",
+    "flatten-json",
+    "python-dotenv",
+    "python-slugify",
+    "setuptools==69.5.1",
+    # ---- ui / monitoring ----
+    "gradio",
+    "tensorboard",
+    "einops",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+]
+
+# Application project: do not try to build/install `ai-toolkit` itself as a
+# package; `uv sync` installs only the dependencies into `.venv`.
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+diffusers = { git = "https://github.com/huggingface/diffusers.git", rev = "dc8d9032171c83741fd37ed2b12bc9d8274464f3" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
