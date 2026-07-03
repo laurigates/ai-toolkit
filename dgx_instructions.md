@@ -67,7 +67,7 @@ export PATH=“/opt/node-v24.11.1-linux-arm64/bin:$PATH”
 Change to the ui directory, then build and run the UI:
 ```
 cd ui
-npm run build_and_start
+bun run build_and_start
 ```
 
 If all went well, you’ll be able to access the UI on port 8675 and start training.

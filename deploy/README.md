@@ -45,9 +45,10 @@ pre-step, which would disrupt a running `comfyui.service`.
 
 ## Design notes
 
-- **PATH**: node/npm from linuxbrew (`/home/linuxbrew/.linuxbrew/bin`); the
-  training interpreter is resolved by explicit path, not PATH.
-- **`npm run start`** assumes a prior build (`just ui-build`), so restarts are
+- **PATH**: node from linuxbrew (`/home/linuxbrew/.linuxbrew/bin`) for the
+  runtime; bun (package manager + script runner) is invoked by absolute path
+  from mise. The training interpreter is resolved by explicit path, not PATH.
+- **`bun run start`** assumes a prior build (`just ui-build`), so restarts are
   fast. `build_and_start` (the upstream one-shot) is only needed on first
   deploy — `install-service` handles it.
 - **No auto-build on boot**: keeps restarts fast and deterministic. Re-run

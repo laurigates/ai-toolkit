@@ -5,14 +5,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
 bun dev
 ```
+
+(This fork uses [bun](https://bun.sh) as the package manager and script runner;
+Node remains the runtime for `next start` and the worker.)
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 

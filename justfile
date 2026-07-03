@@ -25,11 +25,11 @@ train config:
 
 # Install UI deps, push the Prisma schema, and build (required before `start`).
 ui-build:
-    cd ui && npm install && npm run update_db && npm run build
+    cd ui && bun install && bun run update_db && bun run build
 
 # Run the UI in the foreground on :8675 (what the systemd unit runs).
 ui-start:
-    cd ui && npm run start
+    cd ui && bun run start
 
 # --- systemd service -------------------------------------------------------
 

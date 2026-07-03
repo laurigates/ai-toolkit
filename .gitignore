@@ -124,6 +124,7 @@ celerybeat.pid
 .venv
 .python
 .node
+.bun
 env/
 venv/
 ENV/

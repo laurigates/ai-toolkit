@@ -1,0 +1,5 @@
+# The UI (ui/) is managed with bun. Pin bun's major.minor so the systemd unit's
+# ExecStart path (…/mise/installs/bun/1.3/bin/bun) keeps resolving across patch
+# bumps. The Python side stays uv-managed via the justfile (not mise).
+[tools]
+bun = "1.3"

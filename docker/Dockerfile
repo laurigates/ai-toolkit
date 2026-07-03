@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install nodejs
+# Install nodejs (still the runtime for `next start` and the worker)
 WORKDIR /tmp
 RUN curl -sL https://deb.nodesource.com/setup_23.x -o nodesource_setup.sh && \
     bash nodesource_setup.sh && \
@@ -42,6 +42,10 @@ RUN curl -sL https://deb.nodesource.com/setup_23.x -o nodesource_setup.sh && \
     apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install bun (package manager + script runner for the UI)
+RUN curl -fsSL https://bun.sh/install | bash && \
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -64,9 +68,9 @@ COPY requirements.txt requirements_base.txt /app/ai-toolkit/
 RUN pip install --no-cache-dir --break-system-packages -r requirements.txt && \
     pip install setuptools==69.5.1 --no-cache-dir --break-system-packages
 
-# Install Node dependencies (only re-runs when package.json / package-lock.json change)
-COPY ui/package.json ui/package-lock.json /app/ai-toolkit/ui/
-RUN cd /app/ai-toolkit/ui && npm ci
+# Install UI dependencies (only re-runs when package.json / bun.lock change)
+COPY ui/package.json ui/bun.lock /app/ai-toolkit/ui/
+RUN cd /app/ai-toolkit/ui && bun install --frozen-lockfile
 
 # ---------------------------------------------------------------------------- #
 # Source code comes LAST. Only this layer (plus the UI build below) is rebuilt
@@ -84,18 +88,18 @@ RUN echo "Cache bust: ${CACHEBUST}" && \
         --exclude 'ui/node_modules' \
         --exclude 'requirements.txt' \
         --exclude 'ui/package.json' \
-        --exclude 'ui/package-lock.json' \
+        --exclude 'ui/bun.lock' \
         /tmp/ai-toolkit-src/ /app/ai-toolkit/ && \
     rm -rf /tmp/ai-toolkit-src
 
 # Build UI (re-runs on code change, but reuses the cached node_modules above).
 # update_db runs first because it does `prisma generate`, which creates the
 # @prisma/client types the TS build needs. In the old layout generate happened
-# as a side effect of npm install seeing the schema; now the source arrives
-# after npm ci, so run it explicitly before the build.
+# as a side effect of install seeing the schema; now the source arrives
+# after `bun install`, so run it explicitly before the build.
 RUN cd /app/ai-toolkit/ui && \
-    npm run update_db && \
-    npm run build
+    bun run update_db && \
+    bun run build
 
 # Expose port (assuming the application runs on port 3000)
 EXPOSE 8675
