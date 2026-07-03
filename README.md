@@ -2,6 +2,16 @@
 
 AI Toolkit is an easy to use all in one training suite for diffusion models. I try to support all the latest models on consumer grade hardware. Image and video models. It can be run as a GUI or CLI. It is designed to be easy to use but still have every feature imaginable. Free and open source.
 
+> **Fork note (laurigates/ai-toolkit).** This fork modernizes the Python
+> workflow: the environment is managed with [uv](https://docs.astral.sh/uv/)
+> via `pyproject.toml` + `uv.lock` (see the [Installation](#installation)
+> section below), and the UI can be installed as a systemd service — see
+> [`deploy/README.md`](deploy/README.md). Upstream is
+> [ostris/ai-toolkit](https://github.com/ostris/ai-toolkit) (tracked as the
+> `upstream` remote; `just sync-upstream` pulls it in). The legacy
+> `requirements.txt` pip flow still works and is kept as the upstream-sync
+> surface.
+
 
 
 ## Supported Models
@@ -59,15 +69,34 @@ AI Toolkit is an easy to use all in one training suite for diffusion models. I t
 ## Installation
 
 Requirements:
-- python >=3.10 (3.12 recommended)
+- [uv](https://docs.astral.sh/uv/) (manages Python 3.12 + all deps)
 - Nvidia GPU with enough ram to do what you need
-- python venv
+- Node.js > 20 (for the UI)
 - git
 
 
-Linux:
+### This fork (uv — recommended)
+
+`uv sync` builds the `.venv` from the lockfile, including the cu128 torch
+stack (`torch==2.9.1` and friends are pinned through a dedicated
+`pytorch-cu128` index in `pyproject.toml`). No manual torch step, no
+`activate` needed.
+
 ```bash
-git clone https://github.com/ostris/ai-toolkit.git
+git clone https://github.com/laurigates/ai-toolkit.git
+cd ai-toolkit
+uv sync
+```
+
+Run a CLI training job with `uv run python run.py config/whatever.yaml`
+(or `just train config/whatever.yaml`). Run `just` for the full recipe list.
+
+For the web UI as a systemd service, see [`deploy/README.md`](deploy/README.md).
+
+### Alternative (upstream pip flow)
+
+```bash
+git clone https://github.com/laurigates/ai-toolkit.git
 cd ai-toolkit
 python3 -m venv venv
 source venv/bin/activate
@@ -126,7 +155,19 @@ cd ui
 npm run build_and_start
 ```
 
+In this fork you can instead use the `just` recipes (build once, then start —
+faster restarts):
+
+```bash
+just ui-build   # npm install + prisma db push + next build
+just ui-start   # run the UI on :8675 in the foreground
+```
+
 You can now access the UI at `http://localhost:8675` or `http://<your-ip>:8675` if you are running it on a server.
+
+To run the UI as an always-on systemd service (parallel to ComfyUI), see
+[`deploy/README.md`](deploy/README.md) — `just install-service` builds it and
+deploys the unit.
 
 ## Securing the UI
 
@@ -148,7 +189,7 @@ $env:AI_TOOLKIT_AUTH="super_secure_password"; npm run build_and_start
 ### Training
 1. Copy the example config file located at `config/examples/train_lora_flux_24gb.yaml` (`config/examples/train_lora_flux_schnell_24gb.yaml` for schnell) to the `config` folder and rename it to `whatever_you_want.yml`
 2. Edit the file following the comments in the file
-3. Run the file like so `python run.py config/whatever_you_want.yml`
+3. Run the file like so `uv run python run.py config/whatever_you_want.yml` (or `just train config/whatever_you_want.yml`; `python run.py …` with the venv activated also works)
 
 A folder with the name and the training folder from the config file will be created when you start. It will have all 
 checkpoints and images in it. You can stop the training at any time using ctrl+c and when you resume, it will pick back up
